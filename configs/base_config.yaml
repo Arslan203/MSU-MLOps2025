@@ -1,0 +1,28 @@
+# Параметры данных и предобработки
+data:
+  recipes_path: "data/recipes.csv"
+  reviews_path: "data/reviews.csv"
+  min_reviews_per_recipe: 10 # Минимальное кол-во отзывов для включения рецепта в выборку
+  output_artifacts_path: "models/artifacts" # Куда сохранять доп. файлы (скалер, вокабуляр)
+
+# Параметры векторизации текста (ингредиентов)
+text_vectorizer:
+  max_features: 5000 # Максимальное кол-во уникальных ингредиентов в словаре
+
+# Параметры модели
+model:
+  name: "RecipeRanker"
+  embedding_dim: 64      # Размер эмбеддинга для каждого ингредиента
+  hidden_dims: [128, 64] # Размеры скрытых слоев в MLP
+  dropout_rate: 0.3      # Dropout для регуляризации
+  num_numerical_features: 3 # Кол-во числовых признаков (minutes, n_steps, n_ingredients)
+
+# Параметры обучения
+training:
+  test_size: 0.2
+  batch_size: 128
+  epochs: 10
+  learning_rate: 0.001
+  random_seed: 42
+  device: "cpu" # или "cuda", если доступна
+  output_model_path: "models/recipe_ranker_v1" # Куда сохранить обученную модель

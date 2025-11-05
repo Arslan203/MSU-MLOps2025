@@ -4,6 +4,28 @@
 
 Создать сервис, который прогнозирует пользовательский рейтинг нового рецепта (от 0 до 5) на основе его составляющих: списка ингредиентов, сложности, времени приготовления и описания.
 
+**Как запустить:**
+*  Склонировать репозиторий: 
+```linux
+git clone https://github.com/Arslan203/MSU-MLOps2025.git
+```
+*  Установить kaggle:
+```linux
+pip install kaggle
+```
+*  Скачать датасет:
+```linux
+kaggle datasets download -d irkaal/foodcom-recipes-and-reviews -f recipes.csv -p data/
+kaggle datasets download -d irkaal/foodcom-recipes-and-reviews -f reviews.csv -p data/
+```
+*  Собрать образ:
+```linux
+docker build -t recipe-ranker-app .
+```
+*  Запустить обучение:
+```linux
+docker run --rm -v $(pwd)/data:/app/data:ro -v $(pwd)/models:/app/models recipe-ranker-app
+```
 **Бизнес-цель:**
 
 Для онлайн-платформы с рецептами (веб-сайт, приложение) такой сервис решает две задачи:
