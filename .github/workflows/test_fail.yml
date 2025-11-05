@@ -1,0 +1,32 @@
+name: Test Fail Scenario
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-fail:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Create intentionally broken test
+      run: |
+        echo "def test_that_fails():" >> tests/test_fail_example.py
+        echo "    assert False, 'This test intentionally fails to demonstrate CI failure'" >> tests/test_fail_example.py
+    
+    - name: Run tests (should fail)
+      run: |
+        pytest tests/ -v
+      continue-on-error: true
+

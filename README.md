@@ -88,3 +88,82 @@ docker run --rm -v $(pwd)/data:/app/data:ro -v $(pwd)/models:/app/models recipe-
     *   Сравнить модели по метрикам **RMSE** и **MAE**.
     *   Проанализировать ошибки лучшей модели: на каких типах рецептов она ошибается сильнее всего?
     *   Вернуться к шагу 2 для генерации новых признаков (например, "соотношение белков к жирам", "наличие редких ингредиентов") и/или к шагу 3 для подбора гиперпараметров лучшей модели.
+
+## Тестирование
+
+Проект включает комплексную систему тестирования:
+
+### Запуск тестов
+
+```bash
+# Запуск всех тестов
+pytest tests/ -v
+
+# С покрытием кода
+pytest tests/ -v --cov=src --cov-report=html --cov-report=term
+
+# В Docker контейнере (без coverage для избежания проблем с правами)
+docker run --rm recipe-ranker-app python -m pytest tests/ -v
+
+# В Docker с coverage (если нужно)
+docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e COVERAGE_HTML_DIR=/tmp/htmlcov recipe-ranker-app python -m pytest tests/ -v --cov=src --cov-report=term
+```
+
+### Структура тестов
+
+Тесты покрывают следующие модули:
+- `tests/test_data_loader.py` - тесты загрузки и предобработки данных
+- `tests/test_data_validator.py` - тесты валидации данных
+- `tests/test_predictor.py` - тесты постобработки предсказаний
+- `tests/test_trainer.py` - тесты обучения модели
+
+Всего **58 тестов**, проверяющих:
+- Корректность предобработки данных
+- Валидацию входных данных (формат, типы, диапазоны)
+- Постобработку предсказаний для API
+- Работу пайплайна обучения
+
+### CI/CD
+
+Настроен автоматический запуск тестов через GitHub Actions:
+- Тесты запускаются при каждом коммите в `main`, `master`, `develop`
+- Проверка линтера (flake8) и форматирования кода (black)
+- Проверка покрытия кода (pytest-cov)
+
+Файлы конфигурации:
+- `.github/workflows/ci.yml` - основной CI workflow
+- `pytest.ini` - конфигурация pytest
+- `.flake8` - конфигурация линтера
+
+## Структура проекта
+
+```
+MSU-MLOps2025/
+├── src/                    # Исходный код
+│   ├── data_loader.py      # Загрузка и предобработка данных
+│   ├── data_validator.py   # Валидация данных
+│   ├── model.py            # Архитектура модели
+│   ├── trainer.py          # Обучение модели
+│   ├── predictor.py        # Постобработка предсказаний для API
+│   └── utils.py            # Утилиты
+├── tests/                  # Тесты
+│   ├── test_data_loader.py
+│   ├── test_data_validator.py
+│   ├── test_predictor.py
+│   └── test_trainer.py
+├── configs/                # Конфигурационные файлы
+│   └── base_config.yaml
+├── data/                   # Данные (не в репозитории)
+├── models/                 # Обученные модели и артефакты
+├── Dockerfile              # Docker образ
+├── requirements.txt        # Зависимости
+└── README.md               # Документация
+```
+
+## Воспроизводимость
+
+Проект обеспечивает полную воспроизводимость:
+- Фиксация `random_seed` в конфигурации
+- Версионирование зависимостей в `requirements.txt`
+- Docker контейнер для изолированного окружения
+- Сохранение артефактов предобработки (scaler, vectorizer)
