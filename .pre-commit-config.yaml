@@ -1,6 +1,8 @@
 # Pre-commit hooks для автоматической проверки перед коммитом
 # Установка: pip install pre-commit
 # Активация: pre-commit install
+# 
+# Эти проверки точно повторяют проверки из GitHub Actions CI
 
 repos:
   # Общие проверки файлов
@@ -16,23 +18,41 @@ repos:
       - id: check-merge-conflict
       - id: check-case-conflict
 
-  # Форматирование кода с black
+  # Форматирование кода с black (как в CI)
   - repo: https://github.com/psf/black
     rev: 23.12.1
     hooks:
       - id: black
         language_version: python3.9
-        args: ['--line-length=127']
+        args: ['--check', '--line-length=127']
+        files: ^(src|tests)/.*\.py$
 
-  # Линтинг с flake8
+  # Линтинг с flake8 (точно как в CI)
   - repo: https://github.com/pycqa/flake8
     rev: 7.0.0
     hooks:
       - id: flake8
-        args: ['--max-line-length=127', '--max-complexity=10']
+        args: [
+          '--count',
+          '--select=E9,F63,F7,F82',
+          '--show-source',
+          '--statistics'
+        ]
         additional_dependencies: []
+        files: ^(src|tests)/.*\.py$
+      - id: flake8
+        name: flake8 (full check)
+        args: [
+          '--count',
+          '--exit-zero',
+          '--max-complexity=10',
+          '--max-line-length=127',
+          '--statistics'
+        ]
+        additional_dependencies: []
+        files: ^(src|tests)/.*\.py$
 
-  # Запуск тестов pytest
+  # Запуск тестов pytest (как в CI, но без coverage для скорости)
   - repo: local
     hooks:
       - id: pytest
