@@ -1,6 +1,6 @@
 # Данные
-./data/*
-./models/*
+./data
+./models
 
 # Python
 __pycache__/

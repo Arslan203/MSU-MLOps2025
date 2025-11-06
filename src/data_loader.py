@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -16,8 +15,9 @@ from .data_validator import (
     validate_merged_data,
     validate_features,
     validate_processed_features,
-    get_data_statistics
+    get_data_statistics,
 )
+
 
 def parse_duration_to_minutes(duration_str):
     if not isinstance(duration_str, str):
@@ -25,15 +25,16 @@ def parse_duration_to_minutes(duration_str):
     hours = 0
     minutes = 0
     try:
-        hours_match = re.search(r'(\d+)H', duration_str)
+        hours_match = re.search(r"(\d+)H", duration_str)
         if hours_match:
             hours = int(hours_match.group(1))
-        minutes_match = re.search(r'(\d+)M', duration_str)
+        minutes_match = re.search(r"(\d+)M", duration_str)
         if minutes_match:
             minutes = int(minutes_match.group(1))
     except (TypeError, AttributeError):
         return 0
     return hours * 60 + minutes
+
 
 def safe_list_eval_len(s):
     if isinstance(s, str):
@@ -47,7 +48,7 @@ def safe_list_eval_len(s):
         # Пробуем R формат c("item1", "item2")
         try:
             # Убираем c( и закрывающую скобку
-            if s.startswith('c(') and s.endswith(')'):
+            if s.startswith("c(") and s.endswith(")"):
                 inner = s[2:-1]  # Убираем c( и )
                 # Парсим как Python список
                 result = ast.literal_eval(inner)
@@ -59,26 +60,27 @@ def safe_list_eval_len(s):
             pass
     return 0
 
+
 def safe_join_list_from_str(s):
     if isinstance(s, str):
         try:
             # Пробуем Python формат ['item1', 'item2']
             result = ast.literal_eval(s)
             if isinstance(result, list):
-                return ' '.join(str(item) for item in result)
+                return " ".join(str(item) for item in result)
         except (ValueError, SyntaxError):
             pass
         # Пробуем R формат c("item1", "item2")
         try:
             # Убираем c( и закрывающую скобку
-            if s.startswith('c(') and s.endswith(')'):
+            if s.startswith("c(") and s.endswith(")"):
                 inner = s[2:-1]  # Убираем c( и )
                 # Парсим как Python кортеж/список
                 result = ast.literal_eval(inner)
                 if isinstance(result, tuple):
                     result = list(result)
                 if isinstance(result, list):
-                    return ' '.join(str(item) for item in result)
+                    return " ".join(str(item) for item in result)
         except (ValueError, SyntaxError):
             pass
     return ""
@@ -89,7 +91,7 @@ def count_steps(instructions):
     if pd.isna(instructions) or not isinstance(instructions, str):
         return 0
     # Разделяем по точкам, восклицательным и вопросительным знакам
-    steps = re.split(r'[.!?]+', instructions)
+    steps = re.split(r"[.!?]+", instructions)
     # Убираем пустые строки
     steps = [s.strip() for s in steps if s.strip()]
     return len(steps) if len(steps) > 0 else 1
@@ -100,80 +102,85 @@ def load_raw_data(recipes_path, reviews_path):
     logging.info("Загрузка данных...")
     recipes = pd.read_csv(recipes_path)
     reviews = pd.read_csv(reviews_path)
-    
+
     # Валидация сырых данных
     is_valid, errors = validate_raw_data(recipes, reviews)
     if not is_valid:
         raise ValueError(f"Ошибки валидации сырых данных: {errors}")
-    
+
     # Логируем статистику
     stats = get_data_statistics(recipes)
-    logging.info(f"Статистика recipes: {stats['total_recipes']} рецептов, {len(stats['columns'])} столбцов")
-    
+    logging.info(
+        f"Статистика recipes: {stats['total_recipes']} рецептов, {len(stats['columns'])} столбцов"
+    )
+
     return recipes, reviews
 
 
 def calculate_review_statistics(reviews):
     """Вычисляет средний рейтинг и количество отзывов для каждого рецепта."""
-    review_summary = reviews.groupby('RecipeId').agg(
-        avg_rating=('Rating', 'mean'),
-        review_count=('Rating', 'count')
-    ).reset_index()
+    review_summary = (
+        reviews.groupby("RecipeId")
+        .agg(avg_rating=("Rating", "mean"), review_count=("Rating", "count"))
+        .reset_index()
+    )
     return review_summary
 
 
 def merge_and_filter_data(recipes, review_summary, min_reviews_per_recipe):
     """Объединяет рецепты с отзывами и фильтрует по минимальному количеству отзывов."""
-    data = pd.merge(recipes, review_summary, left_on='RecipeId', right_on='RecipeId')
-    data = data[data['review_count'] >= min_reviews_per_recipe]
+    data = pd.merge(recipes, review_summary, left_on="RecipeId", right_on="RecipeId")
+    data = data[data["review_count"] >= min_reviews_per_recipe]
     logging.info(f"Размер датасета после фильтрации: {data.shape[0]} рецептов")
-    
+
     # Валидация объединенных данных
     is_valid, errors = validate_merged_data(data, min_reviews_per_recipe)
     if not is_valid:
         raise ValueError(f"Ошибки валидации объединенных данных: {errors}")
-    
+
     return data
 
 
 def extract_features(data):
     """Извлекает и подготавливает признаки из данных."""
     # Парсим время приготовления из TotalTime (ISO 8601 формат PT24H45M)
-    data['minutes'] = data['TotalTime'].apply(parse_duration_to_minutes)
-    
+    data["minutes"] = data["TotalTime"].apply(parse_duration_to_minutes)
+
     # Извлекаем количество шагов из RecipeInstructions
-    data['n_steps'] = data['RecipeInstructions'].apply(count_steps)
-    
+    data["n_steps"] = data["RecipeInstructions"].apply(count_steps)
+
     # Извлекаем количество и список ингредиентов из RecipeIngredientParts
-    data['n_ingredients'] = data['RecipeIngredientParts'].apply(safe_list_eval_len)
-    data['ingredients'] = data['RecipeIngredientParts'].apply(safe_join_list_from_str)
-    
+    data["n_ingredients"] = data["RecipeIngredientParts"].apply(safe_list_eval_len)
+    data["ingredients"] = data["RecipeIngredientParts"].apply(safe_join_list_from_str)
+
     return data
 
 
 def prepare_numerical_features(data):
     """Подготавливает числовые признаки с обработкой выбросов."""
-    numerical_features = data[['minutes', 'n_steps', 'n_ingredients']].fillna(0)
-    
+    numerical_features = data[["minutes", "n_steps", "n_ingredients"]].fillna(0)
+
     # Ограничиваем выбросы (clip)
     upper_bounds = numerical_features.quantile(0.99)
     numerical_features = numerical_features.clip(lower=0, upper=upper_bounds, axis=1)
-    
+
     return numerical_features
 
 
 def prepare_text_features(data):
     """Подготавливает текстовые признаки (ингредиенты)."""
-    text_features = data['ingredients'].fillna('')
+    text_features = data["ingredients"].fillna("")
     return text_features
 
 
 def split_data(numerical_features, text_features, target, test_size, random_state):
     """Разделяет данные на обучающую и валидационную выборки."""
     X_train_num, X_val_num, X_train_text, X_val_text, y_train, y_val = train_test_split(
-        numerical_features, text_features, target,
+        numerical_features,
+        text_features,
+        target,
         test_size=test_size,
-        random_state=random_state
+        random_state=random_state,
     )
     return X_train_num, X_val_num, X_train_text, X_val_text, y_train, y_val
 
@@ -205,14 +212,16 @@ def transform_with_vectorizer(vectorizer, X_text):
 def save_artifacts(scaler, vectorizer, artifacts_path):
     """Сохраняет артефакты предобработки (scaler, vectorizer)."""
     os.makedirs(artifacts_path, exist_ok=True)
-    with open(os.path.join(artifacts_path, 'scaler.pkl'), 'wb') as f:
+    with open(os.path.join(artifacts_path, "scaler.pkl"), "wb") as f:
         pickle.dump(scaler, f)
-    with open(os.path.join(artifacts_path, 'vectorizer.pkl'), 'wb') as f:
+    with open(os.path.join(artifacts_path, "vectorizer.pkl"), "wb") as f:
         pickle.dump(vectorizer, f)
     logging.info(f"Артефакты (scaler, vectorizer) сохранены в {artifacts_path}")
 
 
-def create_dataloaders(X_train_num, X_train_text, y_train, X_val_num, X_val_text, y_val, batch_size):
+def create_dataloaders(
+    X_train_num, X_train_text, y_train, X_val_num, X_val_text, y_val, batch_size
+):
     """Создает DataLoader'ы для обучения и валидации."""
     train_dataset = RecipeDataset(X_train_num, X_train_text, y_train.values)
     val_dataset = RecipeDataset(X_val_num, X_val_text, y_val.values)
@@ -227,8 +236,7 @@ def load_and_prepare_data(config):
     """Главная функция для загрузки и подготовки данных."""
     # 1. Загрузка данных
     recipes, reviews = load_raw_data(
-        config['data']['recipes_path'],
-        config['data']['reviews_path']
+        config["data"]["recipes_path"], config["data"]["reviews_path"]
     )
 
     # 2. Расчет статистики по отзывам
@@ -236,9 +244,7 @@ def load_and_prepare_data(config):
 
     # 3. Объединение и фильтрация
     data = merge_and_filter_data(
-        recipes,
-        review_summary,
-        config['data']['min_reviews_per_recipe']
+        recipes, review_summary, config["data"]["min_reviews_per_recipe"]
     )
 
     # 4. Извлечение признаков
@@ -247,8 +253,8 @@ def load_and_prepare_data(config):
     # 5. Подготовка числовых и текстовых признаков
     numerical_features = prepare_numerical_features(data)
     text_features = prepare_text_features(data)
-    target = data['avg_rating']
-    
+    target = data["avg_rating"]
+
     # Валидация признаков
     is_valid, errors = validate_features(numerical_features, text_features, target)
     if not is_valid:
@@ -259,8 +265,8 @@ def load_and_prepare_data(config):
         numerical_features,
         text_features,
         target,
-        config['training']['test_size'],
-        config['training']['random_seed']
+        config["training"]["test_size"],
+        config["training"]["random_seed"],
     )
 
     # 7. Нормализация числовых признаков
@@ -269,28 +275,26 @@ def load_and_prepare_data(config):
 
     # 8. Векторизация текстовых признаков
     vectorizer, X_train_text_vec = fit_vectorizer(
-        X_train_text,
-        config['text_vectorizer']['max_features']
+        X_train_text, config["text_vectorizer"]["max_features"]
     )
     X_val_text_vec = transform_with_vectorizer(vectorizer, X_val_text)
-    
-    config['model']['vocab_size'] = len(vectorizer.vocabulary_)
-    
+
+    config["model"]["vocab_size"] = len(vectorizer.vocabulary_)
+
     # Валидация обработанных признаков
     is_valid, errors = validate_processed_features(
-        X_train_num_scaled, X_val_num_scaled,
-        X_train_text_vec, X_val_text_vec,
-        y_train, y_val
+        X_train_num_scaled,
+        X_val_num_scaled,
+        X_train_text_vec,
+        X_val_text_vec,
+        y_train,
+        y_val,
     )
     if not is_valid:
         raise ValueError(f"Ошибки валидации обработанных признаков: {errors}")
 
     # 9. Сохранение артефактов
-    save_artifacts(
-        scaler,
-        vectorizer,
-        config['data']['output_artifacts_path']
-    )
+    save_artifacts(scaler, vectorizer, config["data"]["output_artifacts_path"])
 
     # 10. Создание DataLoader'ов
     train_loader, val_loader = create_dataloaders(
@@ -300,10 +304,11 @@ def load_and_prepare_data(config):
         X_val_num_scaled,
         X_val_text_vec,
         y_val,
-        config['training']['batch_size']
+        config["training"]["batch_size"],
     )
 
     return train_loader, val_loader
+
 
 class RecipeDataset(Dataset):
     def __init__(self, numerical_features, text_features, targets):
@@ -318,6 +323,5 @@ class RecipeDataset(Dataset):
         return {
             "numerical_features": self.numerical_features[idx],
             "text_features": self.text_features[idx],
-            "target": self.targets[idx].unsqueeze(0)
+            "target": self.targets[idx].unsqueeze(0),
         }
-
