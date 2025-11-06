@@ -1,10 +1,10 @@
 name: CI
 
 on:
+  # Запуск при каждом push в любую ветку
   push:
-    branches: [ main, master, develop ]
+  # Запуск при каждом pull request
   pull_request:
-    branches: [ main, master, develop ]
 
 jobs:
   test:
