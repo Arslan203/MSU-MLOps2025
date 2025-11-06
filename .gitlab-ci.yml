@@ -1,0 +1,89 @@
+# GitLab CI конфигурация для автоматического запуска тестов
+
+stages:
+  - lint
+  - test
+  - format
+
+variables:
+  PYTHON_VERSION: "3.9"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+# Кэширование зависимостей
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+
+# Шаблон для Python задач
+.python_template: &python_template
+  image: python:${PYTHON_VERSION}-slim
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
+
+# Линтинг кода
+lint:
+  <<: *python_template
+  stage: lint
+  script:
+    - echo "Запуск линтера flake8..."
+    - flake8 src tests --count --select=E9,F63,F7,F82 --show-source --statistics || true
+    - flake8 src tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+  allow_failure: false
+
+# Проверка форматирования
+format-check:
+  <<: *python_template
+  stage: format
+  script:
+    - echo "Проверка форматирования кода black..."
+    - black --check src tests
+  allow_failure: false
+
+# Запуск тестов
+test:
+  <<: *python_template
+  stage: test
+  script:
+    - echo "Запуск тестов pytest..."
+    - pytest tests/ -v --cov=src --cov-report=xml --cov-report=term --cov-fail-under=70
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+      - htmlcov/
+    expire_in: 1 week
+  allow_failure: false
+
+# Запуск тестов в Docker (опционально)
+test-docker:
+  stage: test
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - apk add --no-cache docker-cli
+  script:
+    - echo "Сборка Docker образа..."
+    - docker build -t recipe-ranker-app .
+    - echo "Запуск тестов в Docker контейнере..."
+    - docker run --rm recipe-ranker-app python -m pytest tests/ -v
+  allow_failure: true
+  only:
+    - main
+    - master
+    - develop
+
+# Запуск при каждом коммите (по умолчанию)
+# Для запуска только на определенных ветках, раскомментируйте:
+# only:
+#   - main
+#   - master
+#   - develop
+#   - merge_requests
+

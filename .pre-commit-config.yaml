@@ -1,0 +1,46 @@
+# Pre-commit hooks для автоматической проверки перед коммитом
+# Установка: pip install pre-commit
+# Активация: pre-commit install
+
+repos:
+  # Общие проверки файлов
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+
+  # Форматирование кода с black
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3.9
+        args: ['--line-length=127']
+
+  # Линтинг с flake8
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: ['--max-line-length=127', '--max-complexity=10']
+        additional_dependencies: []
+
+  # Запуск тестов pytest
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: pytest
+        args: ['tests/', '-v', '--tb=short']
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [commit]
+

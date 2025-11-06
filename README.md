@@ -123,6 +123,64 @@ docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e COVERAGE_HTML_DIR=/tmp/htmlco
 - Постобработку предсказаний для API
 - Работу пайплайна обучения
 
+### Автоматический запуск тестов
+
+#### GitHub Actions (CI/CD)
+
+Тесты автоматически запускаются при каждом коммите через GitHub Actions:
+
+- **При push** в любую ветку
+- **При pull request** в любую ветку
+- Проверка линтера (flake8)
+- Проверка форматирования (black)
+- Запуск всех тестов (pytest)
+- Проверка покрытия кода (coverage)
+
+Файл конфигурации: `.github/workflows/ci.yml`
+
+Проверить статус CI можно в разделе "Actions" на GitHub.
+
+#### Pre-commit hooks (локальная проверка)
+
+Для проверки перед коммитом локально можно использовать pre-commit hooks:
+
+**Установка:**
+```bash
+# Установить pre-commit
+pip install pre-commit
+
+# Активировать hooks
+pre-commit install
+```
+
+**Использование:**
+После установки при каждом `git commit` автоматически будут выполняться:
+- Форматирование кода (black)
+- Проверка линтера (flake8)
+- Запуск тестов (pytest)
+
+Если проверки не пройдут, коммит будет отменен.
+
+**Ручной запуск всех проверок:**
+```bash
+pre-commit run --all-files
+```
+
+**Отключение на один коммит:**
+```bash
+git commit --no-verify -m "сообщение"
+```
+
+**Альтернативный способ (простой bash hook):**
+
+Если не хотите использовать pre-commit, можно установить простой bash hook:
+
+```bash
+# Скопировать hook
+cp scripts/pre-commit-hook.sh .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
 ### CI/CD
 
 Настроен автоматический запуск тестов через GitHub Actions:
@@ -132,6 +190,7 @@ docker run --rm -e COVERAGE_FILE=/tmp/.coverage -e COVERAGE_HTML_DIR=/tmp/htmlco
 
 Файлы конфигурации:
 - `.github/workflows/ci.yml` - основной CI workflow
+- `.pre-commit-config.yaml` - конфигурация pre-commit hooks
 - `pytest.ini` - конфигурация pytest
 - `.flake8` - конфигурация линтера
 
@@ -155,8 +214,11 @@ MSU-MLOps2025/
 │   └── base_config.yaml
 ├── data/                   # Данные (не в репозитории)
 ├── models/                 # Обученные модели и артефакты
+├── scripts/                # Вспомогательные скрипты
+│   └── pre-commit-hook.sh  # Bash hook для pre-commit
 ├── Dockerfile              # Docker образ
 ├── requirements.txt        # Зависимости
+├── .pre-commit-config.yaml # Конфигурация pre-commit
 └── README.md               # Документация
 ```
 
